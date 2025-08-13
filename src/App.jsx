@@ -1,32 +1,71 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
+import { useState, useEffect, useMemo } from 'react'
+import db from './utils/db'
+import { collection, getDocs } from 'firebase/firestore'
+import { Link } from 'react-router-dom'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+  const [contactList, setContactList] = useState([])
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      setLoading(true)
+      try {
+        const snapshot = await getDocs(collection(db, "contacts"))
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        setContactList(data)
+      } catch (error) {
+        console.error("Error fetching contacts:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchContacts()
+  }, [])
+
+  const filteredContacts = useMemo(() => {
+    return contactList
+      .filter(c =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(search.toLowerCase())
+      )
+      .sort((a, b) => a.lastName.localeCompare(b.lastName))
+  }, [contactList, search])
+
+  if (loading) return <p>Loading contacts...</p>
 
   return (
-    <div className="App">
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div>
+      <h1>Contact List</h1>
+      <Link to="/add">
+        <button>Add Contact</button>
+      </Link>
+
+      {/* Search bar */}
+      <div style={{ margin: '10px 0' }}>
+        <input
+          type="text"
+          placeholder="Search contacts..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+
+      <ul>
+        {filteredContacts.length > 0 ? (
+          filteredContacts.map(contact => (
+            <li key={contact.id}>
+              <Link to={`/contact/${contact.id}`}>
+                {`${contact.firstName} ${contact.lastName}`}
+              </Link>
+            </li>
+          ))
+        ) : (
+          <p>No contacts found.</p>
+        )}
+      </ul>
     </div>
   )
 }
